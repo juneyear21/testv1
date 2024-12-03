@@ -57,7 +57,8 @@ app.post('/file', async (req, res) => {
     response.data.pipe(writer);
 
     writer.on('finish', () => {
-      const localFileUrl = `http://localhost:${port}/images/${fileName}`;
+    //   const localFileUrl = `http://localhost:${port}/images/${fileName}`;
+      const localFileUrl = `https://testv1-dj4g.onrender.com/images/${fileName}`;
       res.send(`
         <html>
           <head>
