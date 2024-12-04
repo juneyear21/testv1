@@ -8,78 +8,84 @@ const port = 3000;
 // Telegram Bot Token
 const botToken = '7758299226:AAGl2ClQc6ZAUQFkfDvNXL0V4imtU1GQZUg'; // Replace with your bot's token
 
-// Middleware to parse URL-encoded form data
-app.use(express.urlencoded({ extended: true }));
+// Folder to store images
+const imagesDir = path.join(__dirname, 'images');
+if (!fs.existsSync(imagesDir)) {
+  fs.mkdirSync(imagesDir); // Create directory if it doesn't exist
+}
 
-// Serve static files from the "images" folder
-app.use('/images', express.static(path.join(__dirname, 'images')));
-
-// Default route with a form to enter file_id
+// Serve a default message with a hyperlink for the /file route
 app.get('/file', (req, res) => {
+  const getUpdatesUrl = `https://api.telegram.org/bot${botToken}/getUpdates`;
+
+  // Send an HTML response with the hyperlink
   res.send(`
     <html>
       <head>
-        <title>Upload File ID</title>
+        <title>File Route</title>
       </head>
       <body>
-        <h1>Upload File ID</h1>
-        <form action="/file" method="post">
-          <label for="file_id">Enter File ID:</label>
-          <input type="text" id="file_id" name="file_id" required>
-          <button type="submit">Submit</button>
-        </form>
+        <h1>File Route</h1>
+        <p>To fetch updates, click the link below:</p>
+        <a href="${getUpdatesUrl}" target="_blank">Get Updates</a>
+        <p> Add "file_id" value after "http://localhost:3000/file/{file_id}" </p>
       </body>
     </html>
   `);
 });
 
-// Handle form submission and process the file_id
-app.post('/file', async (req, res) => {
-  const fileId = req.body.file_id;
+// Serve images dynamically and save them with ".jpg" extension
+app.get('/file/:id', async (req, res) => {
+  const fileId = req.params.id;
 
   try {
     // Fetch file path from Telegram
     const fileResponse = await axios.get(`https://api.telegram.org/bot${botToken}/getFile?file_id=${fileId}`);
     const filePath = fileResponse.data.result.file_path;
 
-    // Fetch the file content
+    // Fetch the file from Telegram
     const fileUrl = `https://api.telegram.org/file/bot${botToken}/${filePath}`;
     const response = await axios.get(fileUrl, { responseType: 'stream' });
 
+    // Get the original filename (last part of the file path)
+    const originalFileName = path.basename(filePath);
+
+    // Ensure the filename ends with ".jpg"
+    const fileName = originalFileName.endsWith('.jpg') ? originalFileName : `${originalFileName}.jpg`;
+
+    // Full path to save the file
+    const fileFullPath = path.join(imagesDir, fileName);
+
     // Save the file locally
-    const fileName = path.basename(filePath);
-    const fileDir = path.join(__dirname, 'images');
-    if (!fs.existsSync(fileDir)) {
-      fs.mkdirSync(fileDir);
-    }
-    const localFilePath = path.join(fileDir, fileName);
-    const writer = fs.createWriteStream(localFilePath);
+    const writer = fs.createWriteStream(fileFullPath);
     response.data.pipe(writer);
 
     writer.on('finish', () => {
-    //   const localFileUrl = `http://localhost:${port}/images/${fileName}`;
-      const localFileUrl = `https://testv1-dj4g.onrender.com/images/${fileName}`;
-      res.send(`
-        <html>
-          <head>
-            <title>File Saved</title>
-          </head>
-          <body>
-            <h1>File Saved Successfully</h1>
-            <p>View your file here:</p>
-            <a href="${localFileUrl}" target="_blank">${localFileUrl}</a>
-          </body>
-        </html>
-      `);
+      console.log(`Image saved as ${fileName}`);
+      // Redirect directly to the saved image URL
+      res.redirect(`/saved_image/${fileName}`);
     });
 
-    writer.on('error', (error) => {
-      console.error('Error saving file:', error);
-      res.status(500).send('Failed to save file.');
+    writer.on('error', (err) => {
+      console.error('Error saving image:', err);
+      res.status(500).send('Error saving image');
     });
   } catch (error) {
-    console.error('Error processing file:', error);
-    res.status(500).send('Failed to process file.');
+    console.error('Error fetching image:', error);
+    res.status(500).send('Image not found');
+  }
+});
+
+// Serve saved images
+app.get('/saved_image/:filename', (req, res) => {
+  const fileName = req.params.filename;
+  const filePath = path.join(imagesDir, fileName);
+
+  // Check if the file exists
+  if (fs.existsSync(filePath)) {
+    res.sendFile(filePath);
+  } else {
+    res.status(404).send('Image not found');
   }
 });
 
