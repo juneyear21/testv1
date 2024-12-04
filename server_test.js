@@ -28,7 +28,7 @@ app.get('/file', (req, res) => {
         <h1>File Route</h1>
         <p>To fetch updates, click the link below:</p>
         <a href="${getUpdatesUrl}" target="_blank">Get Updates</a>
-        <p> Add "file_id" value after "http://localhost:3000/file/{file_id}" </p>
+        <p> Add "file_id" value after "https://testv1-dj4g.onrender.com/file/{file_id}" </p>
       </body>
     </html>
   `);
